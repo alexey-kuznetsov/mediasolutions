@@ -1,0 +1,446 @@
+<?php
+
+function onepage_init() {
+  module_load_include('inc', 'ctools', 'includes/object-cache');	
+  module_load_include('inc', 'page_manager', 'plugins/tasks/page');
+  module_load_include('inc', 'page_manager', 'page_manager.admin');
+  
+}
+
+function onepage_menu() {
+	$items['admin/config/user-interface/onepage'] = array(
+	 'type' => MENU_NORMAL_ITEM,
+	 'title' => 'OnePage settings',
+	 'description' => 'Configure OnePage behavior.',
+	 'page callback' => 'drupal_get_form',
+	 'page arguments' => array('onepage_settings'),
+	 'access arguments' => array('access administration settings'),
+	);
+	
+	$onepage_path = variable_get('onepage_path', 'onepage');
+  
+	$items[$onepage_path] = array(
+   'type' => MENU_CALLBACK,
+   'page callback' => 'onepage_render_sections',
+   'access arguments' => array('access onepage'),
+  );
+	
+	return $items;
+}
+
+function onepage_permission() {
+  return array(
+    'access onepage' => array(
+      'title' => t('View One Page'),
+      'description' => t('Allows user to see OnePage pages.'),
+    ),
+  );
+}
+
+function onepage_block_info() {
+  $blocks['onepage_links'] = array(
+    'info' => t('OnePage Links'),
+    'status' => 1,
+  );
+
+  return $blocks;
+}
+
+function onepage_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'onepage_links':
+      $block['subject'] = ''; //t('OnePage Links');
+      $block['content'] = array(
+        '#theme' => 'onepage_links', 
+        '#links' => onepage_get_section_links(),
+      );
+      break;
+  }
+  
+  return $block;
+}
+
+function onepage_theme($existing, $type, $theme, $path) {
+  return array(
+    'onepage_links' => array(
+      'variables' => array('links' => array()),
+      'template' => 'templates/onepage-links',
+    ),  
+    'onepage_section' => array(
+      'variables' => array('name' => NULL, 'section' => array()),
+      'template' => 'templates/onepage-section',
+    ),
+  );
+}
+
+function onepage_render_sections() {
+	drupal_add_js(drupal_get_path('module', 'onepage') . '/js/jquery.viewport.js');
+	drupal_add_js(drupal_get_path('module', 'onepage') . '/js/onepage.js');
+	
+  $sections = variable_get('onepage_sections', array());
+  
+  $output = '';
+  
+  $context = context_load('onepage');
+  context_set('context', $context->name, $context);
+  
+  foreach($sections as $machine_name => $active) {
+  	if($active) {
+	    $section = onepage_execute_section($machine_name);
+	    $output .= theme('onepage_section', array('name' => $machine_name, 'section' => $section));  			
+  	}
+  }
+  
+  if($output == '') {
+    $output = "<div class=\"well\"><h3>No OnePage sections were found</h3>";
+    $output .= "<p>You can create content using the following steps:</p>";
+    $output .= "<ol>
+     <li>Create pages using Page Manager module or ". l('click here', 'admin/structure/pages') ."</li>
+     <li>Chooe desired pages as OnePage sections and configure other settings. ". l('click here', 'admin/config/user-interface/onepage') ."</li>
+    </ol></div>";  	
+  }
+  
+ drupal_set_title(variable_get('onepage_title', t('Drupal OnePage')));
+  return $output;
+  
+}
+
+function onepage_render_section_links() {
+	$links = onepage_get_section_links();
+	return theme('onepage_links', array('links' => $links));
+}
+
+function onepage_execute_section($machine_name) {
+  module_load_include('inc', 'page_manager', 'plugins/tasks/page');
+	
+  $subtask_id = $machine_name;
+  $page = page_manager_page_load($subtask_id);
+  $task = page_manager_get_task($page->task);
+  $subtask = page_manager_get_task_subtask($task, $subtask_id);
+
+  // Turn the contexts into a properly keyed array.
+  $contexts = array();
+  $args = array();
+  foreach (func_get_args() as $count => $arg) {
+    if (is_object($arg) && get_class($arg) == 'ctools_context') {
+      $contexts[$arg->id] = $arg;
+      $args[] = $arg->original_argument;
+    }
+    else if ($count) {
+      $args[] = $arg;
+    }
+  }
+
+  $count = 0;
+  $names = page_manager_page_get_named_arguments($page->path);
+  $bits = explode('/', $page->path);
+
+  if ($page->arguments) {
+    foreach ($page->arguments as $name => $argument) {
+      // Optional arguments must be converted to contexts too, if they exist.
+      if ($bits[$names[$name]][0] == '!') {
+        ctools_include('context');
+        $argument['keyword'] = $name;
+        if (isset($args[$count])) {
+          // Hack: use a special argument config variable to learn if we need
+          // to use menu_tail style behavior:
+          if (empty($argument['settings']['use_tail'])) {
+            $value = $args[$count];
+          }
+          else {
+            $value = implode('/', array_slice($args, $count));
+          }
+
+          $context = ctools_context_get_context_from_argument($argument, $value);
+        }
+        else {
+          // make sure there is a placeholder context for missing optional contexts.
+          $context = ctools_context_get_context_from_argument($argument, NULL, TRUE);
+          // Force the title to blank for replacements
+        }
+        if ($context) {
+          $contexts[$context->id] = $context;
+        }
+      }
+      $count++;
+    }
+  }
+
+  if ($function = ctools_plugin_get_function($task, 'page callback')) {
+    return call_user_func_array($function, array($page, $contexts, $args));
+  }
+
+  ctools_include('context-task-handler');
+  
+  // Load the landlers, choosing only enabled handlers.
+  $handlers = page_manager_load_sorted_handlers($task, $subtask ? $subtask['name'] : '', TRUE);
+
+  $id = ctools_context_handler_get_render_handler($task, $subtask, $handlers, $contexts, $args);
+  if ($id) {
+    return onepage_ctools_context_handler_render_handler($task, $subtask, $handlers[$id], $contexts, $args);
+  }
+  
+  return FALSE;
+}
+
+/**
+ * This function is borrowed from ctools. Render a task handler.
+ */
+function onepage_ctools_context_handler_render_handler($task, $subtask, $handler, $contexts, $args, $page = TRUE) {
+  $function = page_manager_get_renderer($handler);
+  if (!$function) {
+    return NULL;
+  }
+
+  if ($page) {
+    if ($subtask) {
+      $task_name = page_manager_make_task_name($task['name'], $subtask['name']);
+    }
+    else {
+      $task_name = $task['name'];
+    }
+
+    page_manager_get_current_page(array(
+      'name' => $task_name,
+      'task' => $task,
+      'subtask' => $subtask,
+      'contexts' => $contexts,
+      'arguments' => $args,
+      'handler' => $handler,
+    ));
+  }
+
+  $info = $function($handler, $contexts, $args);
+  if (!$info) {
+    return NULL;
+  }
+
+  $context = array(
+    'args' => $args,
+    'contexts' => $contexts,
+    'task' => $task,
+    'subtask' => $subtask,
+    'handler' => $handler
+  );  
+ // drupal_alter('ctools_render', $info, $page, $context);
+
+  // If we don't own the page, let the caller deal with rendering.
+  if (!$page) {
+    return $info;
+  }
+
+  if (!empty($info['response code']) && $info['response code'] != 200) {
+    switch ($info['response code']) {
+      case 403:
+        return MENU_ACCESS_DENIED;
+      case 404:
+        return MENU_NOT_FOUND;
+      case 301:
+      case 302:
+      case 303:
+      case 304:
+      case 305:
+      case 307:
+        $info += array(
+          'query' => array(),
+          'fragment' => '',
+        );
+        $options = array(
+          'query' => $info['query'],
+          'fragment' => $info['fragment'],
+        );
+        return drupal_goto($info['destination'], $options, $info['response code']);
+      // @todo -- should other response codes be supported here?
+    }
+  }
+
+  $plugin = page_manager_get_task_handler($handler->handler);
+
+  if (module_exists('contextual') && user_access('access contextual links') && isset($handler->task)) {
+    // Provide a contextual link to edit this, if we can:
+    $callback = isset($plugin['contextual link']) ? $plugin['contextual link'] : 'ctools_task_handler_default_contextual_link';
+    if ($callback && function_exists($callback)) {
+      $links = $callback($handler, $plugin, $contexts, $args);
+    }
+
+    if (!empty($links) && is_array($links)) {
+      $build = array(
+        '#theme_wrappers' => array('container'),
+        '#attributes' => array('class' => array('contextual-links-region')),
+      );
+
+      if (!is_array($info['content'])) {
+        $build['content']['#markup'] = $info['content'];
+      }
+      else {
+        $build['content'] = $info['content'];
+      }
+
+      $build['contextual_links'] = array(
+        '#prefix' => '<div class="contextual-links-wrapper">',
+        '#suffix' => '</div>',
+        '#theme' => 'links__contextual',
+        '#links' => $links,
+        '#attributes' => array('class' => array('contextual-links')),
+        '#attached' => array(
+          'library' => array(array('contextual', 'contextual-links')),
+        ),
+      );
+      $info['content'] = $build;
+    }
+  }
+   
+  foreach (ctools_context_handler_get_task_arguments($task, $subtask) as $id => $argument) {
+    $plugin = ctools_get_argument($argument['name']);
+    $cid = ctools_context_id($argument, 'argument');
+    if (!empty($contexts[$cid]) && ($function = ctools_plugin_get_function($plugin, 'breadcrumb'))) {
+      $function($argument['settings'], $contexts[$cid]);
+    }
+  }
+  // Only directly output if $page was set to true.
+  if (!empty($info['no_blocks'])) {
+    ctools_set_no_blocks(FALSE);
+  }
+ 
+  return $info;
+}
+
+
+function onepage_settings() {
+	$form = array();
+	
+  $form['onepage_path'] = array(
+   '#type' => 'textfield',
+   '#title' => t('OnePage path'),
+   '#field_prefix' => url('', array('absolute' => 'true')),
+   '#default_value' => variable_get('onepage_path', 'onepage'),
+  );
+  
+  $form['onepage_title'] = array(
+   '#type' => 'textfield',
+   '#title' => t('OnePage title'),
+   '#default_value' => variable_get('onepage_title', t('Drupal OnePage')),
+  );  
+  
+  $header = array( 
+   'machine name' => array('data' => t('Machine name')),
+   'title' => array('data' => t('Title')),   	
+  );
+  
+  $options = array();
+ 
+  foreach (onepage_get_all_sections() as $machine_name => $page) {
+    $options[$machine_name] = array(
+      'machine name' => $machine_name,
+      'title' => $page,
+	  '#attributes' => array('class' => array('draggable')),
+	 		
+    );  
+  }  
+ 
+  $form['onepage_sections'] = array(
+  	  '#title' => t('OnePage sections'),
+      '#prefix' => '<b>' . t('OnePage sections') . '</b>',
+      '#type' => 'tableselect',
+      '#header' => $header,
+      '#options' => $options,
+	  '#empty' => t('No content available.'),
+      '#default_value' => variable_get('onepage_sections', array()),
+      '#multiple' => TRUE,
+	  '#attributes' => array('id' => 'onepage-pages'),
+	  
+  );
+  
+  drupal_add_tabledrag('onepage-pages','order', 'sibling', 'weight');
+  
+	return onepage_system_settings_form($form);
+}
+
+function onepage_system_settings_form($form) {
+  $form['actions']['#type'] = 'actions';
+  $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
+
+  if (!empty($_POST) && form_get_errors()) {
+    drupal_set_message(t('The settings have not been saved because of the errors.'), 'error');
+  }
+  $form['#submit'][] = 'system_settings_form_submit';
+  $form['#submit'][] = 'onepage_settings_flush';
+  // By default, render the form using theme_system_settings_form().
+  if (!isset($form['#theme'])) {
+    $form['#theme'] = 'system_settings_form';
+  }
+  return $form;
+}
+
+function onepage_settings_flush() {
+	cache_clear_all();
+	menu_rebuild();
+}
+
+function onepage_get_pages() {
+  $tasks = page_manager_get_tasks_by_type('page');
+  $pages = array('operations' => array(), 'tasks' => array());
+
+  page_manager_get_pages($tasks, $pages);
+
+  return $pages;
+}
+
+function onepage_get_all_sections() {
+  $sections = array();
+  $pages = onepage_get_pages();
+  
+  foreach($pages['tasks'] as $page) {
+    if($pages['disabled'][$page] != 1) {
+      $sections[str_replace('page-', '', $page)] = $pages['rows'][$page]['data']['title']['data'];
+    }
+  }
+  
+  $psort = variable_get('onepage_sections', false);
+  if ($psort){
+ $ssections = array();
+ $unpr = array();
+  foreach($psort as  $key => $value){
+	  foreach($sections as $machinename => $sec){
+		  if($machinename==$key){
+			  $ssections[$machinename] = $sec;
+			 } else if(!array_key_exists($machinename, $psort)){
+				 $unpr[$machinename] = $sec;
+				 }
+		  }
+	  }
+  $sections = $ssections;
+  $sections = array_merge($sections, $unpr);}
+  return $sections;	
+}
+
+function onepage_get_section_links() {
+	$sections = variable_get('onepage_sections', array());
+	$links = array();
+  
+	foreach($sections as $machine_name => $active) {
+		
+		if($active){
+	     $page = page_manager_page_load($machine_name);
+	     $section = onepage_execute_section($machine_name);
+	     
+	     $links[$machine_name] = array(
+	       'text' => t($section['title']),
+	       'path' => $page->path,
+	       'options' => array(
+	         'attributes' => array(
+	           'id' => 'link-' . $machine_name,
+	           'class' => 'onepage-section-link section-link',
+	         ), 
+	         
+	       ),
+	     );			
+		}
+	}
+	
+	return $links;
+}
+
+
