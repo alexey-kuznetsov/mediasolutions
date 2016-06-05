@@ -24,7 +24,7 @@
 
    /* @if $legacy-support-for-ie6 or $legacy-support-for-ie7 {
       .lt-ie8 & {
-        /* IE6/7 do not support the outline property. 
+        /* IE6/7 do not support the outline property.
         border: 1px solid #ccc;
       }
     }*/
@@ -148,12 +148,12 @@ body{background: $background;}
     top: 0;
     height: $nav-height;
     width: $zen-grid-width;
-  
-	background-color: $orange;	
+
+	background-color: $orange;
 	max-width: 1200px;
 	*{outline: none;
 		}
-	&.click{*{overflow:hidden; background:#fff;}}	
+	&.click{*{overflow:hidden; background:#fff;}}
   .block {
     margin-bottom: 0;
   }
@@ -179,11 +179,11 @@ body{background: $background;}
 	  a {
 		color:$dark-gray;
 		line-height: 2/3 * $nav-height;
-		font-size: 1.5 * $base-font-size;		
+		font-size: 1.5 * $base-font-size;
 		text-decoration: none;
 		display: block;
-		padding: 0 10px;		
-		
+		padding: 0 10px;
+
 		&:hover{background-color: $dark-gray;
 		color:#fff;
 		line-height:2.2em;
@@ -204,7 +204,7 @@ body{background: $background;}
 	top: 0;
 	z-index: 1000;
 			}
-	h2{margin:0; cursor: pointer;}		
+	h2{margin:0; cursor: pointer;}
 	ul.mobile{display:none;
 		&.mclick{
 			display:block;
@@ -214,7 +214,7 @@ body{background: $background;}
 				width:100%;
 			}
 		}
-	}		
+	}
 }
 
 /**
@@ -863,15 +863,15 @@ tr.selected td {
 .view-tracks{
 	@include zen-grid-container();
 	text-align:center;
-	
+
  .views-row{
 	@include gray-box;
 	display: inline-block;
 	text-align: center;
 	margin: 5px;
-	
+
 	.views-field{margin:5px;}
-	
+
 	.views-field-title{
 		height: 4.5em;
 		display:inline-table;
@@ -884,7 +884,7 @@ tr.selected td {
 	text-align: center;
 	.views-row{
 		@include gray-box;
-		display: inline-block;		
+		display: inline-block;
 		margin: 5px;
 		.views-field{
 			margin: 5px;
@@ -896,13 +896,13 @@ tr.selected td {
 	article, form{
 		padding: 10px;
 	}
-	.messages{display: none;}	
+	.messages{display: none;}
 }
 
 #bottom-wrapper {background-color:$dark-gray;
 	overflow: hidden;
 	*{color: #bbb;}
-	.block{float:left;		
+	.block{float:left;
 		}
 	}
 
@@ -910,12 +910,12 @@ tr.selected td {
 	position: absolute;
 	top: 0;
 	right: 20px;
-	
+
 	h2{cursor: pointer;
 		font-size: 24px;
 		line-height: 2.2em;
 		text-indent: -90000px;}
-		
+
 		 a {
 		color:#000;
 		line-height: 2.2em;
@@ -925,10 +925,10 @@ tr.selected td {
 		text-decoration: none;
 		display: block;
 		padding: 0 5px;
-		
+
 		//&:hover{background-color: #000; color: #fff;}
 	  }
-	
+
 	form{display: none;
 			transition:0.5s;
 			padding: 10px;
@@ -938,18 +938,18 @@ tr.selected td {
 			display: block;
 			position: absolute;
 			right: 0;
-			width: 180px;			
+			width: 180px;
 			transition:0.5s;
 			@include box-shadow(0 0 5px);
 			border-radius: 0 0 5px 5px;
 		}
 	}
-	
-}	
+
+}
 
 input[type="button"], input[type="submit"], .reqs{
 	@include orange-button;
-}	
+}
 
 .reqs{text-decoration: none; font-weight: bold;}
 
@@ -976,14 +976,14 @@ input[type="button"], input[type="submit"], .reqs{
 }
 #block-block-3{
 		float: right !important;}
-		
+
 #block-block-5{
 		float: none;
 		width: 100%;
 		p{
 		margin:0;
 		}
-		}		
+		}
 
 .onepage-section{overflow: hidden;}
 
@@ -1001,3 +1001,20 @@ input[type="button"], input[type="submit"], .reqs{
 	img {margin: 10px;}
 	p{margin:0}
 	}
+
+  /* Reviews */
+  .node-review {
+    line-height: 36px;
+    .field-name-field-review-pic {
+      float: left;
+      margin-bottom: 20px;
+      margin-right: 20px;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+  }
+
+
+.flex-direction-nav a:before {
+  padding-top: 10px;
+}
