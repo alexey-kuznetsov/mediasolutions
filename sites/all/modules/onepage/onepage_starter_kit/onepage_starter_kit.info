@@ -15,9 +15,5 @@ features[features_api][] = api:1
 features[page_manager_pages][] = about
 features[page_manager_pages][] = featured
 
-; Information added by drupal.org packaging script on 2013-10-01
-version = "7.x-1.x-dev"
-core = "7.x"
-project = "onepage"
-datestamp = "1380596203"
+
 
