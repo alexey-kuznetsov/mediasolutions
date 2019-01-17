@@ -63,8 +63,7 @@ $('#main-menu > h2').click(function(){
 		
 $('.contact-form #edit-subject').val('Re:');	
 $('.contact-form .form-item-subject').hide();	
-setTimeout(function(){$('#section-services .reqs').click()}, 20000);
-});
+
 
 $(document).click(function(e){
 	if ($(e.target).closest('.region-addnav').length==0 && $('.region-addnav form').hasClass('active')){
